@@ -97,14 +97,21 @@ with tab2:
         df_batch = pd.read_csv(uploaded)
 
         st.write("✅ Preview of uploaded data:")
-        st.dataframe(df_batch.head())
+        st.dataframe(df_batch.head(), height=250)  # preview top rows
 
         if st.button("Run Batch Prediction ⚡"):
             try:
                 out = add_predictions(df_batch)
 
-                st.success("Done! Predictions added.")
-                st.dataframe(out.head())
+                st.success("✅ Done! Predictions added.")
+
+                # scrollable full table
+                st.subheader("📊 All Predictions")
+                st.dataframe(out, height=400)  # scrollable for all rows
+
+                # show distribution of predicted risks
+                st.subheader("📈 Predicted Risk Distribution")
+                st.bar_chart(out["PredictedRisk"].value_counts())
 
                 # download button
                 csv_bytes = out.to_csv(index=False).encode("utf-8")
