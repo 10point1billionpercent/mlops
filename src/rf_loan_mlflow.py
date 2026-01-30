@@ -1,78 +1,92 @@
-# src/train_rf_mlflow.py
+# src/rf_loan_mlflow.py
 
+import os
+import pandas as pd
 import mlflow
 import mlflow.sklearn
-import pandas as pd
+import joblib
+
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import accuracy_score, f1_score
-from skopt import BayesSearchCV
-from skopt.space import Integer, Real
 from sklearn.ensemble import RandomForestClassifier
-import joblib
-import os
 
-# -------- CONFIG --------
-DATA_PATH = "./data/loan_risk_data.csv"   # adjust if needed
-ARTIFACT_PATH = "./artifacts"
+from skopt import BayesSearchCV
+from skopt.space import Integer
+
+# ---------------- CONFIG ----------------
+DATA_PATH = "../data/loan_risk_data.csv"
+ARTIFACT_PATH = "../artifacts"
 os.makedirs(ARTIFACT_PATH, exist_ok=True)
 
-# -------- LOAD DATA --------
+mlflow.set_experiment("RF_Loan_Risk_Bayesian")
+
+# ---------------- LOAD DATA ----------------
 df = pd.read_csv(DATA_PATH)
+
 X = df.drop("RiskCategory", axis=1)
 y = df["RiskCategory"]
 
-# Optional: simple preprocessing for categorical features
 X = pd.get_dummies(X, drop_first=True)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-
-# -------- MLflow EXPERIMENT --------
-mlflow.set_experiment("RF_Loan_Risk_Bayesian")
-
-# -------- Bayesian Search Space --------
-search_space = {
-    "n_estimators": Integer(50, 500),
-    "max_depth": Integer(3, 20),
-    "min_samples_split": Integer(2, 10),
-    "min_samples_leaf": Integer(1, 5)
-}
-
-rf = RandomForestClassifier(class_weight="balanced", random_state=42)
-
-bayes_search = BayesSearchCV(
-    rf,
-    search_spaces=search_space,
-    n_iter=20,                 # number of trials
-    cv=StratifiedKFold(n_splits=3),
-    scoring="f1_weighted",
-    n_jobs=-1,
-    verbose=0
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# -------- START MLflow RUN --------
-with mlflow.start_run():
+# ---------------- MODEL + SEARCH ----------------
+search_space = {
+    "n_estimators": Integer(50, 300),
+    "max_depth": Integer(3, 20),
+    "min_samples_split": Integer(2, 10),
+    "min_samples_leaf": Integer(1, 5),
+}
 
-    bayes_search.fit(X_train, y_train)
-    best_model = bayes_search.best_estimator_
+rf = RandomForestClassifier(
+    class_weight="balanced",
+    random_state=42
+)
 
-    # Predict on test
-    y_pred = best_model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred, average="weighted")
+bayes = BayesSearchCV(
+    rf,
+    search_space,
+    n_iter=20,
+    scoring="f1_weighted",
+    cv=StratifiedKFold(n_splits=3),
+    n_jobs=-1,
+    random_state=42
+)
 
-    # Log best params
-    for param, val in bayes_search.best_params_.items():
-        mlflow.log_param(param, val)
+# ---------------- RUN BAYESIAN SEARCH ----------------
+bayes.fit(X_train, y_train)
 
-    # Log metrics
+# ---------------- LOG EACH TRIAL ----------------
+results = bayes.cv_results_
+
+for i in range(len(results["params"])):
+    with mlflow.start_run(run_name=f"trial_{i+1}"):
+        for k, v in results["params"][i].items():
+            mlflow.log_param(k, v)
+
+        # BayesSearchCV stores NEGATIVE score
+        mlflow.log_metric("f1_weighted", results["mean_test_score"][i])
+
+# ---------------- LOG BEST MODEL ----------------
+best_model = bayes.best_estimator_
+
+y_pred = best_model.predict(X_test)
+acc = accuracy_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred, average="weighted")
+
+with mlflow.start_run(run_name="BEST_MODEL"):
     mlflow.log_metric("accuracy", acc)
     mlflow.log_metric("f1_score", f1)
 
-    # Log model
+    for k, v in bayes.best_params_.items():
+        mlflow.log_param(f"best_{k}", v)
+
     mlflow.sklearn.log_model(best_model, "rf_model")
 
-    # Also save locally in artifacts
-    joblib.dump(best_model, os.path.join(ARTIFACT_PATH, "rf_model.pkl"))
+joblib.dump(best_model, os.path.join(ARTIFACT_PATH, "rf_model.pkl"))
 
-    print("✅ Best params:", bayes_search.best_params_)
-    print(f"Accuracy: {acc:.4f}, F1-score: {f1:.4f}")
+print("✅ DONE")
+print("Best params:", bayes.best_params_)
+print(f"Accuracy: {acc:.4f} | F1: {f1:.4f}")
