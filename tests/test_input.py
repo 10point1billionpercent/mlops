@@ -1,5 +1,5 @@
 from pydantic import ValidationError
-from src.schemas import LoanInput
+from backup.schemas import LoanInput
 
 
 def test_valid_input():

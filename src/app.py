@@ -1,127 +1,107 @@
 import streamlit as st
 import pandas as pd
-import joblib
+import pickle
 import os
+from dotenv import load_dotenv
+from helper_functions import log_info, log_error
+# import shap  # SHAP Explainability
+# from lime.lime_tabular import LimeTabularExplainer  # LIME Explainability
 
-st.set_page_config(page_title="Loan Risk Predictor", page_icon="💳", layout="centered")
+# Load environment variables
+load_dotenv()
 
-st.title("💳 Loan Risk Prediction")
-st.caption("Single prediction + Batch CSV prediction")
+# Define base paths dynamically
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# load model
-MODEL_PATH = os.path.join("artifacts", "rf_model.pkl")
-model = joblib.load(MODEL_PATH)
+ARTIFACTS_DIR = os.path.join(BASE_DIR, os.getenv('ARTIFACTS_DIR'))
+DATA_OUTPUT_DIR = os.path.join(BASE_DIR, os.getenv('DATA_DIR'), "output")
 
-# ----------------- helpers -----------------
-def nice_result(pred_label: str):
-    if pred_label == "Low Risk":
-        st.success(f"✅ Predicted Risk: **{pred_label}**")
-    elif pred_label == "Medium Risk":
-        st.warning(f"⚠️ Predicted Risk: **{pred_label}**")
-    else:
-        st.error(f"🚨 Predicted Risk: **{pred_label}**")
+# Ensure output directory exists
+os.makedirs(DATA_OUTPUT_DIR, exist_ok=True)
 
-def proba_dict(df_one_row):
-    proba = model.predict_proba(df_one_row)[0]
-    class_names = list(model.named_steps["rf"].classes_)
-    return {cls: float(p) for cls, p in zip(class_names, proba)}
+# Define model and artifacts paths
+MODEL_PATH = os.path.join(ARTIFACTS_DIR, "best_classifier.pkl")
+PIPELINE_PATH = os.path.join(ARTIFACTS_DIR, "data_processing_pipeline.pkl")
+LABEL_ENCODER_PATH = os.path.join(ARTIFACTS_DIR, "label_encoder.pkl")
 
-def add_predictions(df_in: pd.DataFrame) -> pd.DataFrame:
-    df = df_in.copy()
+def load_artifact(filepath):
+    """
+    Load a saved pickle artifact.
+    """
+    try:
+        with open(filepath, 'rb') as file:
+            return pickle.load(file)
+    except FileNotFoundError:
+        log_error(f"Artifact not found: {filepath}")
+        st.error(f"Error: Artifact not found: {filepath}")
+        return None
 
-    preds = model.predict(df)
-    probs = model.predict_proba(df)
-    class_names = list(model.named_steps["rf"].classes_)
+def predict_risk_category(input_data):
+    """
+    Predicts the loan risk category using the trained model.
+    """
+    pipeline = load_artifact(PIPELINE_PATH)
+    model = load_artifact(MODEL_PATH)
+    label_encoder = load_artifact(LABEL_ENCODER_PATH)
+    
+    if not pipeline or not model or not label_encoder:
+        return None
+    
+    transformed_input = pipeline.transform(pd.DataFrame([input_data], columns=input_data.keys()))
+    prediction = model.predict(transformed_input)
+    return label_encoder.inverse_transform(prediction)[0]
 
-    df["PredictedRisk"] = preds
+# Streamlit UI
+st.title("🏦 Loan Risk Categorization App")
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Select Page", ["Single Prediction", "Batch Prediction"])
 
-    # add probability columns
-    for i, cls in enumerate(class_names):
-        df[f"Prob_{cls.replace(' ', '_')}"] = probs[:, i]
-
-    return df
-
-# ----------------- UI Tabs -----------------
-tab1, tab2 = st.tabs(["🧍 Single Prediction", "📁 Batch CSV Prediction"])
-
-# ----------------- Single Prediction -----------------
-with tab1:
-    st.subheader("🧍 Single User Input")
-
-    age = st.number_input("Age", 18, 100, 30)
-    income = st.number_input("Income", 0, 1000000, 50000)
-    loan_amount = st.number_input("Loan Amount", 0, 1000000, 20000)
-    credit_score = st.number_input("Credit Score", 300, 850, 680)
-    months_employed = st.number_input("Months Employed", 0, 600, 36)
-    num_credit_lines = st.number_input("Num Credit Lines", 0, 50, 3)
-    interest_rate = st.number_input("Interest Rate (%)", 0.0, 100.0, 12.5)
-    loan_term = st.number_input("Loan Term (months)", 1, 360, 24)
-    dti_ratio = st.number_input("DTI Ratio", 0.0, 1.0, 0.32)
-
-    employment = st.selectbox("Employment Type", ["Salaried", "Self-employed", "Unemployed"])
-    residence = st.selectbox("Residence Type", ["Rent", "Own", "Mortgage"])
-    prev_default = st.selectbox("Previous Default", ["No", "Yes"])
-
-    if st.button("Predict Risk 🚀"):
-        one = pd.DataFrame([{
-            "Age": age,
-            "Income": income,
-            "LoanAmount": loan_amount,
-            "CreditScore": credit_score,
-            "MonthsEmployed": months_employed,
-            "NumCreditLines": num_credit_lines,
-            "InterestRate": interest_rate,
-            "LoanTerm": loan_term,
-            "DTIRatio": dti_ratio,
-            "EmploymentType": employment,
-            "ResidenceType": residence,
-            "PreviousDefault": prev_default
-        }])
-
-        pred = model.predict(one)[0]
-        nice_result(pred)
-
-        probs = proba_dict(one)
-        st.write("### 📊 Probabilities (%)")
-        st.write({k: round(v * 100, 2) for k, v in probs.items()})
-
-# ----------------- Batch CSV Prediction -----------------
-with tab2:
-    st.subheader("📁 Upload CSV for Batch Prediction")
-
-    st.info("CSV must contain the same columns used in training (except RiskCategory).")
-
-    uploaded = st.file_uploader("Upload CSV", type=["csv"])
-
-    if uploaded is not None:
-        df_batch = pd.read_csv(uploaded)
-
-        st.write("✅ Preview of uploaded data:")
-        st.dataframe(df_batch.head(), height=250)  # preview top rows
-
-        if st.button("Run Batch Prediction ⚡"):
-            try:
-                out = add_predictions(df_batch)
-
-                st.success("✅ Done! Predictions added.")
-
-                # scrollable full table
-                st.subheader("📊 All Predictions")
-                st.dataframe(out, height=400)  # scrollable for all rows
-
-                # show distribution of predicted risks
-                st.subheader("📈 Predicted Risk Distribution")
-                st.bar_chart(out["PredictedRisk"].value_counts())
-
-                # download button
-                csv_bytes = out.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "⬇️ Download Predictions CSV",
-                    data=csv_bytes,
-                    file_name="batch_predictions_output.csv",
-                    mime="text/csv"
-                )
-
-            except Exception as e:
-                st.error("Something went wrong. Check your CSV columns.")
-                st.code(str(e))
+if page == "Single Prediction":
+    st.header("Enter Customer Details")
+    age = st.number_input("Age", min_value=18, max_value=100, value=30)
+    income = st.number_input("Income", min_value=1000, max_value=100000, value=50000)
+    employment_type = st.selectbox("Employment Type", ['Salaried', 'Unemployed', 'Self-employed'])
+    residence_type = st.selectbox("Residence Type", ['Parental Home', 'Rented', 'Owned'])
+    credit_score = st.number_input("Credit Score", min_value=300, max_value=850, value=700)
+    loan_amount = st.number_input("Loan Amount", min_value=1000, max_value=500000, value=10000)
+    loan_term = st.number_input("Loan Term (Months)", min_value=6, max_value=360, value=60)
+    previous_default = st.selectbox("Previous Default", ['Yes', 'No'])
+    
+    if st.button("Predict Risk Category"):
+        input_data = {
+            'Age': age,
+            'Income': income,
+            'EmploymentType': employment_type,
+            'ResidenceType': residence_type,
+            'CreditScore': credit_score,
+            'LoanAmount': loan_amount,
+            'LoanTerm': loan_term,
+            'PreviousDefault': previous_default
+        }
+        prediction = predict_risk_category(input_data)
+        if prediction:
+            st.success(f"Predicted Risk Category: {prediction}")
+            log_info(f"Predicted Risk Category: {prediction}")
+            
+elif page == "Batch Prediction":
+    st.header("Batch Prediction")
+    uploaded_file = st.file_uploader("Upload CSV for Batch Prediction", type=["csv"])
+    
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        pipeline = load_artifact(PIPELINE_PATH)
+        model = load_artifact(MODEL_PATH)
+        label_encoder = load_artifact(LABEL_ENCODER_PATH)
+        
+        if pipeline and model and label_encoder:
+            transformed_data = pipeline.transform(df)
+            predictions = model.predict(transformed_data)
+            df['Predicted Risk Category'] = label_encoder.inverse_transform(predictions)
+            
+            # Save the batch predictions to the output folder
+            output_file = os.path.join(DATA_OUTPUT_DIR, "batch_predictions.csv")
+            df.to_csv(output_file, index=False)
+            
+            st.write(df)
+            st.success(f"Batch Prediction Completed! Results saved at {output_file}")
+            log_info("Batch Prediction Completed Successfully!")

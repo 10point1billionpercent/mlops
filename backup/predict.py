@@ -1,4 +1,4 @@
-from src.schemas import LoanInput
+from backup.schemas import LoanInput
 
 def predict_loan(input_data, model):
     # Validate input

@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from src.predict import predict_loan
+from backup.predict import predict_loan
 
 
 class DummyModel:

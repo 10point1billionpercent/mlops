@@ -2,3 +2,4 @@ data/
 meow/
 mlruns/
 *.db
+.env

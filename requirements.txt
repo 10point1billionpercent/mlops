@@ -7,3 +7,5 @@ scikit-optimize
 streamlit
 pydantic
 pytest
+dotenv
+xgboost
