@@ -1,5 +1,6 @@
 data/
 meow/
+testing/
 mlruns/
 *.db
 .env
