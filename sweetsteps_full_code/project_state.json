@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "New project",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-remove-the-ui-element-that-corresponds-to-the-selected-xpath-html-1-body-1-div-1-div-1-div-1-div-1-div-2-div-1-from-the-rendered-page-ensuring-only-this-specific-element-is-removed-and-all-surrounding-layout-content-continues-to-render-normally",
+      "title": "Remove the UI element that corresponds to the selected XPath `/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]` from the rendered page, ensuring only this specific element is removed and all surrounding layout/content continues to render normally.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Remove the requested UI element from the interface (element unspecified)",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Remove selected UI element at provided XPath",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

@@ -1,0 +1,38 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-06T02:59:06.601Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 1,
+    "implemented": 1,
+    "items": [
+      {
+        "id": "REQ-1",
+        "summary": "Remove the UI element that corresponds to the selected XPath `/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]` from the rendered page, ensuring only this specific element is removed and all surrounding layout/content continues to render normally.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useRemoveElementByXPath.ts",
+          "frontend/src/components/RootLayout.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/RootLayout.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/components/RootLayout.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "build_request",
+  "title": "Remove selected UI element at provided XPath",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Remove the UI element that corresponds to the selected XPath `/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]` from the rendered page, ensuring only this specific element is removed and all surrounding layout/content continues to render normally.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Can you please remove this element?\n\n<selected-elements>\nElement 1:\n- XPath:\n/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]\n</selected-elements>"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The DOM node at XPath `/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]` is no longer present after the change.",
+        "No other UI elements outside the selected XPath are removed or visually altered (other than natural reflow from removing this element).",
+        "The page renders without runtime errors or console errors after the element removal."
+      ]
+    }
+  ],
+  "constraints": [
+    "Apply the change ONLY to the element identified by the provided XPath; do not remove or modify other elements.",
+    "Do not edit files under `frontend/src/components/ui` or other immutable paths listed in SYSTEM_CONTEXT."
+  ],
+  "nonGoals": [
+    "Do not redesign the page or adjust styling beyond what is necessary as a direct consequence of removing the selected element.",
+    "Do not change backend logic or Internet Identity/auth flow behavior."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

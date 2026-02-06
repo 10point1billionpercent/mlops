@@ -1,0 +1,28 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Remove specific DOM node by XPath",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Remove only the rendered DOM node that matches the provided XPath, without impacting surrounding UI or causing runtime errors.",
+      "acceptanceCriteria": [
+        "The DOM node at XPath `/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]` is no longer present after the change.",
+        "No other UI elements outside the selected XPath are removed or visually altered (other than natural reflow from removing this element).",
+        "The page renders without runtime errors or console errors after the element removal."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useRemoveElementByXPath.ts",
+          "operation": "create",
+          "description": "Create a small React hook that, on mount, safely locates the exact node via document.evaluate for the given XPath and removes it if present (guarded for SSR/undefined document, null results, and non-Element nodes; swallow/console.debug on failure to avoid console errors)."
+        },
+        {
+          "path": "frontend/src/components/RootLayout.tsx",
+          "operation": "modify",
+          "description": "Wire the XPath-based removal hook into the app shell so it runs after render and removes only the specific node at `/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]` when present, without modifying any other layout or components."
+        }
+      ]
+    }
+  ]
+}
